@@ -2,7 +2,7 @@
 const express = require ('express');
 const mysql = require ('mysql');
 const util = require ('util');
-
+const jwt = require ('')
 const app = express ();
 const puerto = 3000;
 
@@ -49,7 +49,7 @@ app.get ('/api/alumnos', async (req, res) => {
     }
     catch (error) {
         console.log(error.message);
-        res.status(413).send ({"error":error.message});
+        res.status(413).send.json (error.message);
     }
 });
 
@@ -75,7 +75,7 @@ app.post ('/api/alumnos', async (req, res) => {
         query = 'INSERT INTO alumnos (nombre, apellido, dni) VALUE (?,?,?)';
         respuesta = await qy (query, [req.body.nombre, req.body.apellido, req.body.dni]);
         console.log(respuesta);
-        res.send ({"respuesta": respuesta});
+        res.send.json (respuesta););
     }
     catch (error) {
         console.log(error.message);
@@ -97,5 +97,5 @@ app.put ('/api/alumnos/:id', async (req,res) => {
 
 // Servidor 
 app.listen (puerto, () => {
-    console.log('Servidor funcionando por puerto 3000!');
+    console.log('Servidor funcionando por puerto ' + puerto);
 });
