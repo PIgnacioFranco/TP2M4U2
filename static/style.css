@@ -1,0 +1,17 @@
+body {
+    display: flex;
+    justify-content: center;
+    background-color: grey;
+}
+.recuadro {
+    display: flex;
+    flex-direction: column; 
+    justify-content: center;
+    align-items: center;
+    width: 25em;
+    height: 20em;
+    background-color: bisque;
+    border-radius: 20px;
+    box-shadow: 2px 2px 5px khaki ;
+    margin: 40px 40px 40px 40px;
+}
