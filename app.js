@@ -113,7 +113,11 @@ app.put ('/api/alumnos/:id', async (req,res) => {
         if (consulta.length > 0)
             throw new Error ('No existe el alumno');
     }
-})
+    catch (error) {
+        console.log(error.message);
+        res.status(413).send ({"error":error.message});
+    }
+});
 
 // Servidor 
 app.listen (puerto, () => {
