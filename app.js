@@ -5,7 +5,7 @@ const util = require ('util');
 const jwt = require ('jsonwebtoken');
 const unless = require ('express-unless');
 const bcrypt = require ('bcrypt');
-const { send } = require('process');
+//const { send } = require('process');
 
 const app = express ();
 const puerto = process.env.PORT ? process.env.PORT : 3000;
@@ -33,16 +33,32 @@ const qy = util.promisify(conexion.query).bind(conexion);
 
 // autetificación
 const auth = (req,res,next) => {
+    try {
+       let token = req.headers ['Authorization'] ;
+       if (!token)
+        throw new Error ('NO estas logueado');
 
+        token = token.replace ('Bearer ','');
+
+        jwt.verify (token, 'Secret', (err, user) = > {
+            if (err)
+            throw new Error ('Token invalido');
+        });
+
+        next ();
+    } catch (error) {
+        res.status(413).send ({erro: error.message});
+    }
 };
 
-
-
-
-
-
-
-
+// permite ejecutar una api sin pasar por la verificacion token
+app.use (auth.unless ({
+    path: [
+        {url: '/api/login', methods:['POST']},
+        {url: '/api/registro', methods:['POST']}
+    ],
+}),
+);
 
 /**
  * Base de datos. Registro de alumnos:
@@ -138,9 +154,6 @@ app.post ('/api/login', async (req,res) => {
        res.status(413).send(error.message);
     }
 })
-
-
-
 
 // get devuelve la lista de alumnos
 app.get ('/api/alumnos', async (req, res) => {
