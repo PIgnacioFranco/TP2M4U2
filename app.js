@@ -40,7 +40,7 @@ const auth = (req,res,next) => {
 
         token = token.replace ('Bearer ','');
 
-        jwt.verify (token, 'Secret', (err, user) = > {
+        jwt.verify (token, 'Secret', (err, user) => {
             if (err)
             throw new Error ('Token invalido');
         });
