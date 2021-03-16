@@ -5,14 +5,12 @@ const util = require ('util');
 const jwt = require ('jsonwebtoken');
 const unless = require ('express-unless');
 const bcrypt = require ('bcrypt');
-//const { send } = require('process');
 
 const app = express ();
-const puerto = process.env.PORT ? process.env.PORT : 3000;
 
-app.use (express.static('static')); // para manejar archivos estaticos
-app.use (express.urlencoded()); // decodifica la url, recibe desde el cliente
-app.use = (express.json());
+app.use(express.json()); // mapea de objet Js a JSon
+
+const puerto = process.env.PORT ? process.env.PORT : 3000;
 
 const conexion = mysql.createConnection ({
     host: 'localhost',
@@ -28,13 +26,13 @@ conexion.connect( (error) => {
     console.log ('Conexión a la BD establecida!');
 });
 
-//// Para pasar de callback a async-await
+// Para pasar de callback a async-await
 const qy = util.promisify(conexion.query).bind(conexion);
 
 // autetificación
 const auth = (req,res,next) => {
     try {
-       let token = req.headers ['Authorization'] ;
+       let token = req.headers ['authorization'] ;
        if (!token)
         throw new Error ('NO estas logueado');
 
@@ -47,17 +45,19 @@ const auth = (req,res,next) => {
 
         next ();
     } catch (error) {
-        res.status(413).send ({erro: error.message});
+        res.status(413).send ({error: error.message});
     }
-};
+}
 
 // permite ejecutar una api sin pasar por la verificacion token
-app.use (auth.unless ({
-    path: [
-        {url: '/api/login', methods:['POST']},
-        {url: '/api/registro', methods:['POST']}
-    ],
-}),
+auth.unless = unless;
+app.use (
+    auth.unless ({
+        path: [
+            {url: '/login', methods:['POST']},
+            {url: '/registro', methods:['POST']},
+        ],
+    }),
 );
 
 /**
@@ -73,15 +73,21 @@ app.use (auth.unless ({
   * dni: dni del alumno, int 8 (obligatorio) 
   * constraseña: varchar codificada 100 (obligatorio)
 */
-//
-//// post para registrar un alumno
-app.post ('/api/registro', async (req, res) => {
+
+// post para registrar un alumno
+app.post ('/registro', async (req, res) => {
     try {
         // verifico que se envio un nombre, apellido y dni
-        if (!req.body.nombre || !req.body.apellido || !req.body.dni || !req.body.clave) {
-            throw new Error ('Faltaron datos');
+        if (!req.body.nombre ){
+            throw new Error ('Falto nombre');
         }
-
+        if (!req.body.apellido ){
+            throw new Error ('Falto apellido');
+        }
+        
+        if (!req.body.dni || !req.body.clave) {
+            throw new Error ('Falto dni/clave');
+        }
         // verifico que no exista un alumno registrado
         let query = 'SELECT * FROM alumnos WHERE (nombre = ? AND apellido = ?) OR dni = ?';
         let respuesta = await qy (query, [req.body.nombre, req.body.apellido, req.body.dni]);
@@ -102,27 +108,28 @@ app.post ('/api/registro', async (req, res) => {
             dni: req.body.dni,
             clave: claveEncriptada 
         };
+
         // inserto los datos en la BD
         query = 'INSERT INTO alumnos (nombre, apellido, dni, clave) VALUE (?,?,?,?)';
         respuesta = await qy (query, [alumno.nombre, alumno.apellido, alumno.dni, alumno.clave]);
-        //console.log(respuesta);
-        res.json (respuesta);
+        console.log(respuesta); // muestra la respuesta de la BD
+        //res.json (respuesta[0]);
 
         // respuesta.insertId , busca el alumno ingresado a la BD por medio del inserId que retorna BD indicando que 
         // se realizo el ingreso correctame
-        query = 'SELECT * FROM persona WHERE id = ?'
+        query = 'SELECT * FROM alumnos WHERE id = ?'
         const registroInsertado = await qy(query, [respuesta.insertId]);
-        res.json(registroInsertado[0]);
+        res.json(registroInsertado[0]); // devuelve el registro ingresado
 
     }
     catch (error) {
         console.log(error.message);
-        res.status(413).send ({"error":error.message});
+        res.status(413).send ({"error": error.message});
     }
 });
 
 // login api
-app.post ('/api/login', async (req,res) => {
+app.post ('/login', async (req,res) => {
     try {
         if ( !req.body.dni || !req.body.clave )
             throw new Error ('Falta usuario/constraseña');
@@ -160,8 +167,8 @@ app.get ('/api/alumnos', async (req, res) => {
     try {
         let query = 'SELECT nombre, apellido, dni FROM alumnos';
         let respuesta = await qy (query); 
-        res.send ({"respuesta":respuesta});
-        //res.json (respuesta); 
+        //res.send ({"respuesta":respuesta});
+        res.json (respuesta); 
     }
     catch (error) {
         console.log(error.message);
@@ -169,15 +176,48 @@ app.get ('/api/alumnos', async (req, res) => {
     }
 });
 
+// GET id devuelve un registro segun id
+app.get ('/api/alumnos/:id', async (req,res) => {
+    try {
+        const id = req.params.id;
+        let query = 'SELECT * FROM alumnos WHERE id=?';
+        let respuesta = await qy (query, [id]);
+        if (respuesta.length == 0)
+            throw new Error ('No existe alumno')  ;
+
+        res.json(respuesta[0]);
+
+    } catch (error) {
+        console.log(error.message);
+        res.status(413).send.json (error.message);
+    }
+})
 
 // PUT actualiza un registro
 app.put ('/api/alumnos/:id', async (req,res) => {
     try {
         const id = req.params.id;
-        let consulta = 'SELECT * FROM alumnos WHERE id = ?';
-        let respuesta = await qy ( consulta, [id] );
-        if (consulta.length > 0)
+        let query = 'SELECT * FROM alumnos WHERE id = ?';
+        let respuesta = await qy ( query, [id] );
+        if (respuesta.length == 0)
             throw new Error ('No existe el alumno');
+
+        const claveEncriptada = await bcrypt.hash (req.body.clave,10);
+
+        const alumno = {
+            nombre: req.body.nombre,
+            apellido: req.body.apellido,
+            dni: req.body.dni,
+            clave: claveEncriptada
+        };
+
+        query = 'UPDATE alumnos SET nombre=UPPER(?), apellido=UPPER(?), dni=?, clave=? WHERE id=?'; // para guardar registros en mayusculas
+        respuesta = await qy (query, [alumno.nombre, alumno.apellido, alumno.dni, alumno.clave, id]);
+
+        query = 'SELECT * FROM alumnos WHERE id=?';
+        const registroInsertado = await qy(query, [id]);
+        res.json (registroInsertado[0]);
+
     }
     catch (error) {
         console.log(error.message);
@@ -185,6 +225,24 @@ app.put ('/api/alumnos/:id', async (req,res) => {
     }
 });
 
+// DELETE borra un registro. Obs.: si el registro no tiene que tener ninguna valor/talbla asociada
+// o se puede hacer un borrado logico que solo se marca el registro como desabilitado
+app.delete ('/api/alumnos/:id', async (req,res) =>{
+    try {
+        const id = req.params.id
+        let query = 'SELECT * FROM alumnos WHERE id=?';
+        let respuesta = await qy (query, [id]);
+        if (respuesta.length == 0)
+            throw new Error ('No existe el alumno');
+
+        query = 'DELETE FROM alumnos WHERE id = ?'; // muy importante el where o se borra toda la tabla
+        respuesta = await qy (query, [id]);
+
+        res.json (respuesta[0]);
+    } catch (error) {
+        res.status(314).send ({"error": error.message});
+    }
+});
 // Servidor 
 app.listen (puerto, () => {
     console.log('Servidor funcionando por puerto ' + puerto);
