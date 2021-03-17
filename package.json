@@ -1,5 +1,5 @@
 {
-  "name": "tpm4u2",
+  "name": "TPM4U2",
   "version": "1.0.0",
   "description": "Se agrega a la API REST Autenticación por JWT",
   "main": "app.js",
